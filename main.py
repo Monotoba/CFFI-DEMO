@@ -9,18 +9,20 @@
 __author__ = "Randall Morgan"
 __copyright__ = "Copyright 2023, SensorNet"
 __credits__ = ["Randall Morgan"]
-__license__ = "GPL"
+__license__ = "BSD-2-Clause"
 __version__ = "1.0.0"
 __maintainer__ = "Randall Morgan"
 __email__ = "rmorgan@sensornet.us"
 __status__ = "Beta"
 
+from pathlib import Path
+import sys
+
 import cffi
 
 ffi = cffi.FFI()
-lib = ffi.dlopen(
-    "./example.so"
-)  # or "./example.dll" on Windows, or "./example.dylib" on macOS
+library_name = "example.dylib" if sys.platform == "darwin" else "example.so"
+lib = ffi.dlopen(str(Path(__file__).resolve().parent / library_name))
 
 # Add C function Signatures in ffi.cdef()
 ffi.cdef(
@@ -54,6 +56,8 @@ def mult(x: float, y: float) -> float:
 def greet(name: str) -> str:
     b_string = name.encode()  # Note the name string must be converted to bytes.
     result = lib.greet(b_string)
+    if result == ffi.NULL:
+        raise ValueError("Name exceeds the C greeting buffer capacity")
     bstring = ffi.string(result)
     return bstring.decode("utf8")
 
@@ -91,23 +95,25 @@ def matrix_multiply():
     print(f"A: {A}\n\nB: {B}\n\nC: {C}\n\n")
 
     # Convert to C types
-    _A = ffi.new("double[]", __builtins__.sum(A, []))
-    _B = ffi.new("double[]", __builtins__.sum(B, []))
-    _C = ffi.new("double[]", __builtins__.sum(C, []))
+    _A = ffi.new("double[]", [value for row in A for value in row])
+    _B = ffi.new("double[]", [value for row in B for value in row])
+    _C = ffi.new("double[]", [value for row in C for value in row])
 
-    m, n, p = 2, 2, 2
+    m, n, p = q, q, q
 
     lib.matrix_multiply(_A, _B, _C, m, n, p)
     C = [[_C[i * q + j] for j in range(q)] for i in range(q)]
 
     print(f"Result:\n\nA: {A}\n\nB: {B}\n\nC: {C}\n\n")
+    return C
 
 
-def read_data():
+def read_data(filename: str = "data.txt", size: int = 100_000):
     # read data from file
-    size = 100_000
+    if size <= 0:
+        raise ValueError("Read size must be positive")
     data = ffi.new("double[]", size)
-    filename = ffi.new("char[]", b"data.txt")
+    filename = ffi.new("char[]", filename.encode())
     retval = lib.read_file(filename, data, size)
 
     # check if read was successful
@@ -116,23 +122,23 @@ def read_data():
         for i in range(size):
             print(data[i])
     else:
-        print("Error reading data from file.")
+        raise OSError("Could not read the requested number of values from the data file")
     return data
 
 
-def write_data(data_list: list):
+def write_data(data_list: list, filename: str = "output.txt"):
     size = len(data_list)
     data = ffi.new("double[]", data_list)
 
     # write data to file
-    filename = ffi.new("char[]", b"output.txt")
+    filename = ffi.new("char[]", filename.encode())
     retval = lib.write_file(filename, data, size)
 
     # check if write was successful
     if retval == 0:
         print("Data written successfully.")
     else:
-        print("Error writing data to file.")
+        raise OSError("Could not write the data file")
 
 
 def main():
