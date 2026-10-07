@@ -30,7 +30,10 @@ float multiply(float x, float y) {
  */
 char* greet(char* name) {
     static char message[50];
-    sprintf(message, "Hello, %s!", name);
+    int length = snprintf(message, sizeof(message), "Hello, %s!", name);
+    if (length < 0 || (size_t)length >= sizeof(message)) {
+        return NULL;
+    }
     return message;
 }
 
@@ -124,13 +127,13 @@ int read_file(char* filename, double* data, int size) {
     }
 
     for (int i = 0; i < size; i++) {
-        if (fscanf(file, "%lf", &data[i]) == EOF) {
-            break;
+        if (fscanf(file, "%lf", &data[i]) != 1) {
+            fclose(file);
+            return -1;
         }
     }
 
-    fclose(file);
-    return 0;
+    return fclose(file) == 0 ? 0 : -1;
 }
 
 /**
@@ -147,9 +150,11 @@ int write_file(char* filename, double* data, int size) {
     }
 
     for (int i = 0; i < size; i++) {
-        fprintf(file, "%lf\n", data[i]);
+        if (fprintf(file, "%lf\n", data[i]) < 0) {
+            fclose(file);
+            return -1;
+        }
     }
 
-    fclose(file);
-    return 0;
+    return fclose(file) == 0 ? 0 : -1;
 }

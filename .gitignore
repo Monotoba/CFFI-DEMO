@@ -2,3 +2,7 @@
 /data.txt
 /example.so
 /.idea
+
+__pycache__/
+example.dylib
+.venv/
